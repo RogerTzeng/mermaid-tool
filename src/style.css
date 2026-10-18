@@ -1,0 +1,75 @@
+:root { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif; color: #203730; background: #f5f6f2; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea, select { font: inherit; }
+button, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button { color: inherit; }
+button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #72b797; outline-offset: 3px; }
+.app { max-width: 1600px; margin: auto; }
+.app-header { height: 104px; padding: 24px 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dfe6de; background: #fafbf8; }
+.brand { display: flex; gap: 14px; align-items: center; }
+.brand-symbol { background: #235e48; color: #e8f2bc; width: 46px; height: 46px; border-radius: 13px; font-size: 32px; font-weight: 700; display: flex; align-items: center; justify-content: center; letter-spacing: -4px; }
+.brand-symbol span { font-size: 21px; margin: 0 4px 6px -1px; }
+h1 { font-size: 20px; letter-spacing: -.7px; margin: 0 0 4px; }
+.brand p { margin: 0; font-size: 11px; color: #7c8b81; letter-spacing: 1px; }
+.local-badge { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #53745d; border: 1px solid #dce6d9; padding: 8px 13px; border-radius: 30px; background: #f1f6ed; }
+.local-badge span { width: 6px; height: 6px; border-radius: 50%; background: #70a77a; }
+main { padding: 36px 48px 20px; }
+.workspace-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.eyebrow { font-size: 10px; letter-spacing: 2px; font-weight: 600; color: #788c78; }
+h2 { font-size: 28px; letter-spacing: -.8px; font-weight: 600; margin: 9px 0 0; }
+.workspace-heading p { color: #829085; font-size: 12px; margin: 0 0 4px; }
+.workspace { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(350px, 1.15fr); gap: 20px; align-items: start; }
+.editor-panel, .preview-panel { background: #fff; border: 1px solid #dfe5db; border-radius: 14px; overflow: hidden; box-shadow: 0 3px 12px #243a2e03; }
+.panel-header { height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #e9ede5; }
+h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; margin: 0; }
+.panel-number { font-family: monospace; font-size: 10px; color: #8c9c8e; letter-spacing: -.5px; font-weight: 400; }
+.text-button { background: none; border: none; font-size: 12px; padding: 7px 0 7px 10px; color: #568167; }
+.text-button:hover { color: #214f3a; }
+.example-bar { height: 51px; display: flex; align-items: center; gap: 12px; background: #fbfcf9; border-bottom: 1px solid #eef0eb; padding: 0 20px; }
+.example-bar label { font-size: 11px; color: #8a968c; }
+select { border: 1px solid #dfe6da; background: white; border-radius: 6px; padding: 5px 24px 5px 10px; font-size: 11px; color: #607460; max-width: 70%; }
+.code-editor { height: 405px; display: flex; overflow: hidden; background: #fff; padding: 22px 0; }
+.editor-gutter { color: #b9c2b5; font: 12px/26px monospace; text-align: right; padding: 0 16px; min-width: 48px; user-select: none; overflow: hidden; }
+textarea { width: 100%; min-width: 0; padding: 0 20px 0 0; border: 0; resize: none; overflow: auto; background: transparent; color: #405c4d; font: 12px/26px 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; tab-size: 4; outline-offset: -3px !important; }
+.editor-footer, .preview-footer { height: 46px; border-top: 1px solid #e9ede5; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 10px; color: #8d9b8e; }
+.editor-footer span:first-child { font-family: monospace; }
+.render-status { color: #8b968d; font-size: 10px; }
+.render-status.success { color: #62956d; }
+.preview-viewport { position: relative; height: 456px; overflow: hidden; background-color: #fdfefb; background-image: radial-gradient(#dce4d8 1px, transparent 1px); background-size: 18px 18px; }
+.preview-viewport.interactive { cursor: grab; touch-action: none; user-select: none; }
+.preview-viewport.dragging { cursor: grabbing; }
+.diagram-stage { position: absolute; left: 50%; top: 50%; }
+.diagram-stage img { display: block; max-width: none; }
+.empty-preview { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #8b9b8b; text-align: center; padding: 24px; }
+.empty-preview > span { font-size: 46px; color: #acbca4; }
+.empty-preview h4 { font-size: 14px; font-weight: 500; margin: 18px 0 8px; }
+.empty-preview p { font-size: 11px; margin: 0; }
+.zoom-controls { display: flex; align-items: center; gap: 3px; }
+.zoom-controls button { background: none; border: 0; border-radius: 4px; padding: 5px 8px; font-size: 11px; color: #688269; }
+.zoom-controls button:hover:enabled { background: #eef4e9; }
+.zoom-controls output { min-width: 40px; text-align: center; font-size: 10px; }
+.zoom-controls button:last-child { border-left: 1px solid #e3e8dd; border-radius: 0; margin-left: 7px; padding-left: 12px; }
+.export-panel { margin-top: 24px; padding: 24px; border: 1px solid #dfe5db; border-radius: 14px; background: #fff; display: grid; grid-template-columns: 1fr 2.1fr; gap: 0 34px; }
+.export-title p { font-size: 11px; color: #8a978b; line-height: 1.7; margin: 10px 0 15px; }
+.filename-label { display: flex; gap: 10px; align-items: center; font-size: 10px; color: #879581; }
+.filename-label input { border: 1px solid #dfe5da; border-radius: 6px; padding: 7px 10px; color: #56705a; font-size: 11px; width: 170px; max-width: 70%; }
+.format-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.format-button { background: #fcfdf9; border: 1px solid #dfe7d7; border-radius: 10px; display: flex; flex-direction: column; text-align: left; position: relative; padding: 16px 14px; transition: background .15s, border-color .15s, transform .15s; }
+.format-button:hover:enabled { background: #eef4e6; border-color: #a8bd96; transform: translateY(-2px); }
+.format-icon { font-size: 24px; color: #567b50; margin-bottom: 12px; line-height: 1; }
+.format-button strong { font-size: 13px; display: block; margin-bottom: 5px; font-weight: 600; }
+.format-button small { color: #8d9b85; font-size: 9px; display: block; line-height: 1.5; }
+.download-icon { position: absolute; right: 13px; top: 16px; color: #9aae8c; }
+.export-notice { font-size: 10px; color: #8c9984; grid-column: 2; margin: 12px 0 0; line-height: 1.7; min-height: 17px; }
+.app-footer { display: flex; justify-content: space-between; margin: 22px 0 0; font-size: 10px; color: #a1aa9a; }
+.error-box { color: #924c32; background: #fff7f1; border-top: 1px solid #efd9c9; padding: 14px 18px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.error-box pre { white-space: pre-wrap; font-size: 11px; margin: 6px 0 0; }
+.render-host { position: fixed; left: -100000px; top: 0; visibility: hidden; }
+@media (min-width: 1500px) { .code-editor { height: 485px; } .preview-viewport { height: 536px; } }
+@media (max-width: 1100px) { main { padding: 30px 24px 20px; } .app-header { padding: 24px; } .export-panel { grid-template-columns: 1fr; gap: 20px; } .export-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; } .export-title p { display: none; } .export-notice { grid-column: 1; margin-top: -8px; } }
+@media (max-width: 760px) { .app-header { height: 90px; padding: 20px; } main { padding: 24px 16px; } .brand p, .workspace-heading p { display: none; } h1 { font-size: 17px; } .local-badge { font-size: 10px; padding: 7px 9px; } .brand-symbol { width: 38px; height: 38px; } h2 { font-size: 24px; } .workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; } .code-editor { height: 310px; } .preview-viewport { height: 380px; } .format-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .format-button { min-height: 112px; } .export-panel { padding: 18px; } .app-footer { gap: 18px; line-height: 1.6; } .app-footer span:last-child { text-align: right; } }
+.language-switch { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #607460; }
+.language-switch select { max-width: none; }
+@media (max-width: 760px) { .app-header { flex-wrap: wrap; height: auto; gap: 14px; } .language-switch { margin-left: auto; } .local-badge { display: none; } .preview-footer { padding: 0 10px; } .format-button small { overflow-wrap: anywhere; } }

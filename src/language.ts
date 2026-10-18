@@ -1,0 +1,81 @@
+export type Language = 'zh-TW' | 'en';
+
+const english: Record<string, string> = {
+  "圖片 · 白底 2×": "Image · White background 2×",
+  "向量 · 自由縮放": "Vector · Scalable",
+  "節點與連線可編輯": "Editable shapes and connectors",
+  "請選擇 .mmd 或 .mermaid 文字檔。": "Choose a .mmd or .mermaid text file.",
+  "檔案太大，請選擇 50,000 字元以內的流程圖。": "File too large. Choose a diagram within 50,000 characters.",
+  "檔案超過 50,000 字元。": "File exceeds 50,000 characters.",
+  "程式碼已更新，請等待預覽完成後重新匯出。": "The code has changed. Wait for the preview before exporting again.",
+  "把程式碼，變成清楚的流程。": "Turn code into clear workflows.",
+  "本機處理 · 無需上傳": "Local processing · No uploads",
+  "從想法到流程圖": "From ideas to flowcharts",
+  "編輯、預覽，然後帶到你習慣的工具。": "Edit, preview, and export to your favorite tools.",
+  "Mermaid 程式碼": "Mermaid code",
+  "↥ 匯入檔案": "↥ Import file",
+  "載入範例": "Load example",
+  "選擇一個流程圖": "Choose a flowchart",
+  "字元": "characters",
+  "請檢查程式碼": "Check your code",
+  "即時預覽": "Live preview",
+  "更新中…": "Updating…",
+  "需要修正": "Needs attention",
+  "● 已更新": "● Up to date",
+  "等待輸入": "Waiting for input",
+  "滾輪縮放・按住滑鼠左鍵拖移": "Scroll to zoom · Hold the left mouse button to pan",
+  "Mermaid 流程圖預覽": "Mermaid flowchart preview",
+  "正在繪製流程圖": "Drawing your flowchart",
+  "修正程式碼後，圖表會出現在這裡": "Fix the code to see your diagram here",
+  "你的下一張流程圖，從這裡開始": "Your next flowchart starts here",
+  "稍等一下，讓節點找到自己的位置。": "Just a moment while the nodes find their places.",
+  "貼上 Mermaid 程式碼，或從左側載入範例。": "Paste Mermaid code or load an example.",
+  "向量預覽": "Vector preview",
+  "縮小": "Zoom out",
+  "縮放比例": "Zoom level",
+  "放大": "Zoom in",
+  "符合視窗": "Fit to view",
+  "帶走你的流程圖": "Export your flowchart",
+  "圖片用於分享，可編輯檔案用於接續創作。": "Share images or keep creating with editable files.",
+  "檔案名稱": "File name",
+  "匯出中…": "Exporting…",
+  "可編輯匯出保留結構與大致布局，特殊形狀與部分樣式可能簡化。": "Editable exports preserve structure and approximate layout; some shapes and styles may be simplified.",
+  "專注流程，讓思路保持清晰。": "Clear workflows. Clear thinking.",
+  "流程圖與時序圖 · PNG / SVG / draw.io / Excalidraw": "Flowcharts and sequence diagrams · PNG / SVG / draw.io / Excalidraw",
+  "多代理時序圖": "Multi-agent sequence diagram",
+  "審核流程": "Approval workflow",
+  "分組與服務": "Groups and services",
+  "多行與分支": "Multiline labels and branches",
+  "已下載 ": "Downloaded ",
+  "匯出失敗：": "Export failed: ",
+  "貼上 Mermaid 流程圖程式碼，或載入一個範例。": "Paste Mermaid flowchart code or load an example.",
+  "程式碼超過 50,000 字元，請縮小流程圖。": "Code exceeds 50,000 characters. Reduce the diagram size.",
+  "第一版不支援 init 指令或 YAML 設定區塊，請保留流程圖程式碼。": "Init directives and YAML configuration are not supported. Use flowchart code only.",
+  "支援 flowchart／graph 流程圖與 sequenceDiagram 時序圖，請以對應宣告開頭。": "Use a flowchart / graph declaration or sequenceDiagram.",
+  "第一版不支援互動指令、外部圖片或圖示，請改用一般文字節點。": "Interactive commands, external images, and icons are not supported. Use text nodes.",
+  "轉換結果包含重複節點，無法安全匯出。": "Conversion produced duplicate nodes. Unable to export safely.",
+  "圖片超出 PNG 可匯出的大小，請改用 SVG 或縮小流程圖。": "Image exceeds PNG size limits. Use SVG or reduce the diagram size.",
+  "瀏覽器無法建立 PNG 畫布。": "The browser could not create a PNG canvas.",
+  "PNG 編碼失敗，請改用 SVG。": "PNG encoding failed. Use SVG instead.",
+  "無法產生有效的 SVG 預覽。": "Unable to generate a valid SVG preview.",
+  "流程圖的圖片尺寸無效。": "Invalid diagram dimensions.",
+  "未取得可編輯的圖形元素。": "No editable elements were produced.",
+  "轉換結果包含重複的元素 ID，無法安全匯出。": "Conversion produced duplicate element IDs. Unable to export safely.",
+  "轉換結果包含無效的圖形座標。": "Conversion produced invalid shape coordinates.",
+  "第一版不支援旋轉元素的可編輯匯出。": "Editable export of rotated elements is not supported.",
+  "轉換結果包含無效的連線座標。": "Conversion produced invalid connector coordinates.",
+  "轉換結果遺失連線或標籤的綁定目標。": "Conversion lost a connector or label binding target.",
+  "轉換結果包含循環群組，無法安全匯出。": "Conversion produced cyclic groups. Unable to export safely.",
+  "包含無法保留為可編輯元素的類型：": "Unsupported editable element type: ",
+  "。請改用一般流程圖節點。": ". Use standard flowchart nodes."
+};
+
+export function translate(text: string, language: Language): string {
+  if (language === 'zh-TW') return text;
+  if (english[text]) return english[text];
+  for (const prefix of ['已下載 ', '匯出失敗：']) {
+    if (text.startsWith(prefix)) return english[prefix] + translate(text.slice(prefix.length), language);
+  }
+  const match = /^包含無法保留為可編輯元素的類型：(.+)。請改用一般流程圖節點。$/.exec(text);
+  return match ? `Unsupported editable element type: ${match[1]}. Use standard flowchart nodes.` : text;
+}
