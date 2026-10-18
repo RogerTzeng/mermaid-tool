@@ -1,6 +1,8 @@
 # Mermaid Studio
 
-本機執行的 Mermaid 流程圖與時序圖預覽、轉檔工具。介面支援繁體中文與 English，程式碼與轉檔資料都在瀏覽器內處理，沒有後端或上傳功能。使用目前功能不需要登入其他網站或設定 API key。
+Mermaid 流程圖與時序圖預覽、轉檔工具。介面支援繁體中文與 English，程式碼與轉檔資料都在瀏覽器內處理，沒有後端或上傳功能。使用目前功能不需要登入其他網站或設定 API key。
+
+[線上使用 Mermaid Studio](https://RogerTzeng.github.io/mermaid-tool/)
 
 ## 啟動
 
