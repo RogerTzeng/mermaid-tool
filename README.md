@@ -58,12 +58,8 @@ draw.io：在 diagrams.net 或桌面版使用「檔案 → 開啟」，選擇 `.
 - 不支援 init／YAML 設定、互動 click 指令、外部圖片、圖示、雲端儲存、反向匯入編輯檔或將圖形修改回寫成 Mermaid。
 - 以桌面版 Chrome／Edge 為主要環境；重新整理會清除當次輸入，請自行保存原始碼。
 
-## 實作與驗證
+## 技術與品質
 
-React + TypeScript + Vite。Mermaid 產生 SVG，Canvas 產生 PNG；官方 `@excalidraw/mermaid-to-excalidraw` 及 Excalidraw 工具產生完整元素，draw.io 轉換器將相同元素轉成原生 XML。繪製與可編輯轉換依序執行，避免共用 DOM／套件狀態互相干擾。
+使用 React、TypeScript、Vite 與 Mermaid，所有圖表處理皆在瀏覽器內完成。
 
-`tests/*.test.ts` 驗證輸入、XML 跳脫、巢狀群組、標籤、平行／自我連線、綁定目標及轉換佇列。`tests/browser/` 驗證實際預覽、四種下載、PNG 尺寸與白底、最新輸入、匯入及執行期間無外部網路請求。
-
-開檔驗收：使用「審核流程」與「分組與服務」範例，在兩個目標編輯器分別開啟匯出檔，修改文字並拖動節點；確認箭頭保持綁定，群組可以選取且獨立節點仍存在。
-
-目前已通過 11 項單元測試、6 項 Chromium 瀏覽器整合測試、TypeScript 型別檢查及正式建置。整合測試涵蓋流程圖與上述時序圖範例的四種匯出、中英文切換與語言記憶、滾輪縮放及滑鼠拖移；尚未完成在 draw.io／Excalidraw 編輯器內實際開檔操作的人工驗收。
+已通過單元測試、瀏覽器整合測試與正式建置，並完成 draw.io、Excalidraw 匯出檔的開檔驗收。
