@@ -2,8 +2,7 @@ import { checkSource, safeFilename } from './flowchart';
 import { assertEditable, toDrawio } from './drawio';
 import type { RenderedDiagram } from './render';
 import { diagramQueue } from './serial-queue';
-import { previewStyles } from './editable-style';
-import { routeFlowchart } from './edge-routing';
+import { previewStyles, type Bounds, type LabelLayout } from './editable-style';
 
 export type ExportFormat = 'svg' | 'png' | 'drawio' | 'excalidraw';
 
@@ -21,7 +20,10 @@ async function editableScene(source: string, svg: string) {
   // Some converter versions reuse IDs for parallel arrows. Only nodes are binding targets.
   const ids = new Set<string>();
   const styles = previewStyles(svg);
-  let edgeIndex = 0;
+  const isSequence = /^\s*sequenceDiagram\b/m.test(source);
+  const edgeCounts = new Map<string, number>();
+  const matchedEdges = new Set<string>();
+  const geometry = new Map<string, Bounds & { points?: [number, number][]; label?: LabelLayout }>();
   const unique = skeleton.map((element, index) => {
     let id = element.id ?? `generated-${index}`;
     if (ids.has(id) && element.type !== 'arrow' && element.type !== 'line') {
@@ -29,10 +31,33 @@ async function editableScene(source: string, svg: string) {
     }
     while (ids.has(id)) id += `-${index}`;
     ids.add(id);
-    const style = element.type === 'arrow' ? styles.edges[edgeIndex++] : styles.nodes.get(id);
-    // Use the system font so conversion never needs remote font assets.
+    let edgeKey = '';
+    if (element.type === 'arrow' && element.start?.id && element.end?.id) {
+      const pair = `${element.start.id}_${element.end.id}`;
+      const count = edgeCounts.get(pair) ?? 0;
+      edgeCounts.set(pair, count + 1);
+      const prefix = `L_${pair}_`;
+      edgeKey = [...styles.edges.keys()].filter((key) => key.startsWith(prefix) && /^\d+$/.test(key.slice(prefix.length)))[count] ?? '';
+    }
+    const style = element.type === 'arrow' ? styles.edges.get(edgeKey) : styles.nodes.get(id);
+    if (!isSequence && element.type === 'arrow' && (!style || matchedEdges.has(edgeKey))) {
+      throw new Error('無法對應預覽中的連線，已停止匯出以避免遺失連線。');
+    }
+    if (style) {
+      if (element.type === 'arrow') matchedEdges.add(edgeKey);
+      if ('points' in style) {
+        const [x, y] = style.points[0];
+        geometry.set(id, { x, y,
+          width: Math.max(...style.points.map(([px]) => px)) - Math.min(...style.points.map(([px]) => px)),
+          height: Math.max(...style.points.map(([, py]) => py)) - Math.min(...style.points.map(([, py]) => py)),
+          points: style.points.map(([px, py]) => [px - x, py - y]), label: style.label });
+      } else geometry.set(id, style);
+    }
+    const layout = geometry.get(id);
+    // System fonts keep conversion local. Match the preview's font size.
     return {
       ...element,
+      ...(layout ? { x: layout.x, y: layout.y, width: layout.width, height: layout.height, ...(layout.points ? { points: layout.points } : {}) } : {}),
       id,
       roughness: 0,
       fillStyle: 'solid' as const,
@@ -41,26 +66,53 @@ async function editableScene(source: string, svg: string) {
       ...(style?.backgroundColor ? { backgroundColor: style.backgroundColor } : {}),
       ...(element.type === 'arrow' ? { roundness: null } : {}),
       ...(element.type === 'text' ? { fontFamily: 2 as const } : {}),
-      ...('label' in element && element.label ? { label: { ...element.label, fontFamily: 2 as const, ...(style?.labelColor ? { strokeColor: style.labelColor } : {}) } } : {}),
+      ...('label' in element && element.label ? { label: { ...element.label, fontFamily: 2 as const,
+        ...(style?.label ? { text: style.label.text, fontSize: style.label.fontSize, strokeColor: style.label.strokeColor } : {}) } } : {}),
     };
   });
+  if (!isSequence && matchedEdges.size !== styles.edges.size) {
+    throw new Error('轉換結果的連線數量與預覽不符，已停止匯出以避免遺失連線。');
+  }
   const converted = convertToExcalidrawElements(unique, { regenerateIds: false });
-  // Binding adjusts arrow endpoints. Keep Mermaid's routed polyline instead.
-  const elements = converted.map((element) => {
+  // Conversion can resize shapes and move endpoints/labels. Restore the SVG
+  // coordinates after creating native elements, then bind that exact geometry.
+  let routed = converted.map((element) => {
+    if (element.type === 'text' && element.containerId) {
+      const label = geometry.get(element.containerId)?.label;
+      if (label) return { ...element, ...label, originalText: label.text, autoResize: false };
+    }
+    const layout = geometry.get(element.id);
+    if (layout) {
+      const { label: _label, ...position } = layout;
+      return { ...element, ...position };
+    }
     if (element.type !== 'arrow') return element;
     const original = unique.find((item) => item.id === element.id);
     if (original?.type !== 'arrow' || !original.points) return element;
-    const points: [number, number][] = original.points.map(([x, y]: readonly [number, number]) => [x, y] as [number, number]);
-    return {
-      ...element,
-      x: original.x ?? element.x,
-      y: original.y ?? element.y,
-      points,
+    const points: [number, number][] = original.points.map(([x, y]: readonly [number, number]) => [x, y]);
+    return { ...element, x: original.x ?? element.x, y: original.y ?? element.y, points,
       width: Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x)),
-      height: Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)),
-    };
+      height: Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)) };
   });
-  const routed = /^\s*sequenceDiagram\b/m.test(source) ? elements : routeFlowchart(elements);
+  if (!isSequence) {
+    // Recalculate editor bindings for the new ports. Keep our geometry: the
+    // converter also nudges endpoints, which would change the preview paths.
+    const bindingSkeleton: Parameters<typeof convertToExcalidrawElements>[0] = [];
+    for (const element of routed) {
+      if (element.type === 'arrow') bindingSkeleton.push({
+        ...element,
+        start: element.startBinding ? { id: element.startBinding.elementId } : undefined,
+        end: element.endBinding ? { id: element.endBinding.elementId } : undefined,
+      });
+      else if (element.type === 'rectangle' || element.type === 'diamond' || element.type === 'ellipse') bindingSkeleton.push(element);
+    }
+    const rebound = convertToExcalidrawElements(bindingSkeleton, { regenerateIds: false });
+    const bindings = new Map(rebound.filter((element) => element.type === 'arrow').map((element) => [element.id, element]));
+    routed = routed.map((element) => {
+      const binding = bindings.get(element.id);
+      return element.type === 'arrow' && binding?.type === 'arrow' ? { ...element, startBinding: binding.startBinding, endBinding: binding.endBinding } : element;
+    });
+  }
   assertEditable(routed);
   return { elements: routed, serializeAsJSON };
 }

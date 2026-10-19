@@ -1,11 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { examples } from '../../src/examples';
 
 async function getDownload(page: Page, format: string): Promise<Buffer> {
   const waiting = page.waitForEvent('download');
   await page.getByRole('button', { name: new RegExp(`^${format}`) }).click();
-  const file = await waiting;
+  const failed = page.getByRole('status').filter({ hasText: /匯出失敗|Export failed/ });
+  const file = await Promise.race([waiting, failed.waitFor({ state: 'visible' }).then(async () => { throw new Error(await failed.innerText()); })]);
   return readFile((await file.path())!);
 }
 
@@ -221,33 +222,83 @@ test('editable exports retain class colors, link styles and routed endpoints', a
   }
 });
 
-test('guardrail architecture routes editable connectors around nodes', async ({ page }) => {
+test('guardrail exports preserve Mermaid preview geometry and delegation', async ({ page }) => {
   await page.goto('/');
   const source = await readFile('tests/fixtures/guardrails.mmd', 'utf8');
   await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill(source);
   await expect(page.getByRole('button', { name: /^Excalidraw/ })).toBeEnabled();
+  const preview = (await getDownload(page, 'SVG')).toString();
+  const expected = await page.evaluate((svg) => {
+    const host = document.createElement('div');
+    host.innerHTML = svg;
+    document.body.append(host);
+    const root = host.querySelector('svg')!;
+    const nodes = [...root.querySelectorAll<SVGGraphicsElement>('.node')].map((node) => {
+      const shape = node.querySelector<SVGGraphicsElement>('.label-container')!;
+      const box = shape.getBBox();
+      const transform = root.getScreenCTM()!.inverse().multiply(shape.getScreenCTM()!);
+      const position = new DOMPoint(box.x, box.y).matrixTransform(transform);
+      return { id: node.id.slice(root.id.length + 1).replace(/^flowchart-/, '').replace(/-\d+$/, ''), x: position.x, y: position.y, width: box.width, height: box.height };
+    });
+    const edges = [...root.querySelectorAll<SVGPathElement>('.edgePaths path.flowchart-link')].map((path) => {
+      const transform = root.getScreenCTM()!.inverse().multiply(path.getScreenCTM()!);
+      const points = Array.from({ length: 101 }, (_, index) => {
+        const p = path.getPointAtLength(path.getTotalLength() * index / 100).matrixTransform(transform);
+        return [p.x, p.y];
+      });
+      return { id: path.getAttribute('data-id')!, points };
+    });
+    host.remove();
+    return { nodes, edges };
+  }, preview);
   const scene = JSON.parse((await getDownload(page, 'Excalidraw')).toString());
   const nodes = scene.elements.filter((e: { type: string }) => ['rectangle', 'diamond', 'ellipse'].includes(e.type));
   const arrows = scene.elements.filter((e: { type: string }) => e.type === 'arrow');
   expect(nodes).toHaveLength(17);
   expect(arrows).toHaveLength(28);
+  const delegation = arrows.find((edge: { id: string }) => edge.id === 'DG_DA');
+  expect(delegation.startBinding.elementId).toBe('DG');
+  expect(delegation.endBinding.elementId).toBe('DA');
+  expect(delegation.endArrowhead).toBe('arrow');
+  for (const expectedNode of expected.nodes) {
+    const node = nodes.find((element: { id: string }) => element.id === expectedNode.id);
+    expect(node).toBeTruthy();
+    for (const key of ['x', 'y', 'width', 'height'] as const) expect(node[key]).toBeCloseTo(expectedNode[key], 3);
+  }
   for (const edge of arrows) {
+    const path = expected.edges.find((item) => item.id === `L_${edge.startBinding.elementId}_${edge.endBinding.elementId}_0`)!;
+    expect(path, `preview path for ${edge.id}`).toBeTruthy();
     const points = edge.points.map(([x, y]: number[]) => [edge.x + x, edge.y + y]);
-    for (let i = 1; i < points.length; i++) {
-      const [a, b] = [points[i - 1], points[i]];
-      expect(a[0] === b[0] || a[1] === b[1], `${edge.id} must be orthogonal`).toBe(true);
-      for (const node of nodes) {
-        if ([edge.startBinding?.elementId, edge.endBinding?.elementId].includes(node.id)) continue;
-        const crosses = a[0] === b[0]
-          ? a[0] > node.x + 0.01 && a[0] < node.x + node.width - 0.01 && Math.max(a[1], b[1]) > node.y + 0.01 && Math.min(a[1], b[1]) < node.y + node.height - 0.01
-          : a[1] > node.y + 0.01 && a[1] < node.y + node.height - 0.01 && Math.max(a[0], b[0]) > node.x + 0.01 && Math.min(a[0], b[0]) < node.x + node.width - 0.01;
-        expect(crosses, `${edge.id} crosses ${node.id}`).toBe(false);
+    for (const [index, endpoint] of [[0, points[0]], [100, points[points.length - 1]]] as const) {
+      expect(endpoint[0]).toBeCloseTo(path.points[index][0], 3);
+      expect(endpoint[1]).toBeCloseTo(path.points[index][1], 3);
+    }
+    for (const sample of path.points) {
+      let distance = Infinity;
+      for (let i = 1; i < points.length; i++) {
+        const [a, b] = [points[i - 1], points[i]];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const t = dx || dy ? Math.max(0, Math.min(1, ((sample[0] - a[0]) * dx + (sample[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+        distance = Math.min(distance, Math.hypot(sample[0] - a[0] - t * dx, sample[1] - a[1] - t * dy));
       }
+      expect(distance, `exported ${edge.id} must follow the displayed Mermaid path`).toBeLessThan(1);
     }
   }
   const drawio = (await getDownload(page, 'draw.io')).toString();
+  await writeFile('test-results/guardrails.drawio', drawio);
+  await writeFile('test-results/guardrails-mermaid.svg', preview);
   expect((drawio.match(/edge="1"/g) ?? [])).toHaveLength(28);
   expect(drawio).toContain('exitPerimeter=0');
+  const delegationTarget = await page.evaluate((text) => {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    const cells = [...doc.querySelectorAll('mxCell')];
+    const source = cells.find((cell) => cell.getAttribute('value')?.replace(/\s+/g, ' ') === 'Delegation Guardrail')!;
+    const target = cells.find((cell) => cell.getAttribute('value')?.replace(/\s+/g, ' ') === 'Domain Agents')!;
+    return cells.filter((cell) => cell.getAttribute('source') === source.id && cell.getAttribute('target') === target.id).map((cell) => cell.getAttribute('style'));
+  }, drawio);
+  expect(delegationTarget).toHaveLength(1);
+  expect(delegationTarget[0]).toContain('endArrow=open');
   const paths = await page.evaluate((text) => {
     const doc = new DOMParser().parseFromString(text, 'application/xml');
     return [...doc.querySelectorAll('mxCell[edge="1"]')].map((edge) => {
@@ -257,4 +308,19 @@ test('guardrail architecture routes editable connectors around nodes', async ({ 
     });
   }, drawio);
   expect(paths).toEqual(arrows.map((edge: { x: number; y: number; points: number[][] }) => edge.points.map(([x, y]) => [Math.round((edge.x + x) * 1000) / 1000, Math.round((edge.y + y) * 1000) / 1000])));
+  // Exercise Excalidraw's file loader, not only our JSON serializer.
+  const imported = await page.evaluate(async (data) => {
+    const modulePath = '/node_modules/.vite/deps/@excalidraw_excalidraw.js';
+    const { loadFromBlob, exportToSvg } = await import(modulePath);
+    const restored = await loadFromBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), null, null);
+    const svg = await exportToSvg({ elements: restored.elements, appState: { exportBackground: true, viewBackgroundColor: '#ffffff' }, files: {} });
+    document.body.replaceChildren(svg);
+    svg.style.width = '1200px';
+    svg.style.height = 'auto';
+    return restored.elements.find((element: { id: string }) => element.id === 'DG_DA');
+  }, scene);
+  expect(imported.startBinding.elementId).toBe('DG');
+  expect(imported.endBinding.elementId).toBe('DA');
+  expect(imported.points).toEqual(delegation.points);
+  await page.screenshot({ path: 'test-results/guardrails-preview-layout.png', fullPage: true });
 });

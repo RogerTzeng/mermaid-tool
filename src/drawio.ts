@@ -155,7 +155,22 @@ export function toDrawio(input: readonly DiagramElement[], name: string): string
       port(end, points[points.length - 1], 'entry');
       const bindings = `${start ? ` source="${elementIds.get(start)}"` : ''}${end ? ` target="${elementIds.get(end)}"` : ''}`;
       const point = (p: { x: number; y: number }, as = '') => `<mxPoint x="${number(p.x)}" y="${number(p.y)}"${as ? ` as="${as}"` : ''}/>`;
-      cells.push(`<mxCell id="${elementIds.get(element.id)}" value="${value}" parent="${parent}" edge="1"${bindings} style="${xml(style.join(';'))}"><mxGeometry relative="1" as="geometry">${point(points[0], 'sourcePoint')}${point(points[points.length - 1], 'targetPoint')}<Array as="points">${points.slice(1, -1).map((p) => point(p)).join('')}</Array></mxGeometry></mxCell>`);
+      let labelOffset = '';
+      if (label) {
+        const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
+        let remaining = lengths.reduce((sum, length) => sum + length, 0) / 2;
+        let middle = points[0];
+        for (let i = 0; i < lengths.length; i++) {
+          if (remaining <= lengths[i]) {
+            const ratio = lengths[i] ? remaining / lengths[i] : 0;
+            middle = { x: points[i].x + (points[i + 1].x - points[i].x) * ratio, y: points[i].y + (points[i + 1].y - points[i].y) * ratio };
+            break;
+          }
+          remaining -= lengths[i];
+        }
+        labelOffset = point({ x: label.x + label.width / 2 - offset.x - middle.x, y: label.y + label.height / 2 - offset.y - middle.y }, 'offset');
+      }
+      cells.push(`<mxCell id="${elementIds.get(element.id)}" value="${value}" parent="${parent}" edge="1"${bindings} style="${xml(style.join(';'))}"><mxGeometry relative="1" as="geometry">${point(points[0], 'sourcePoint')}${point(points[points.length - 1], 'targetPoint')}<Array as="points">${points.slice(1, -1).map((p) => point(p)).join('')}</Array>${labelOffset}</mxGeometry></mxCell>`);
     } else {
       if (element.type === 'text') style.push('text', 'strokeColor=none', 'fillColor=none');
       else if (element.type === 'diamond') style.push('rhombus');
