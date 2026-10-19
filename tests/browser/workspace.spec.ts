@@ -190,3 +190,33 @@ test('previews and exports the multi-agent sequence diagram in all formats', asy
   expect(scene.elements.some((element: { text?: string }) => element.text?.includes('Final response'))).toBe(true);
   expect(external).toEqual([]);
 });
+
+test('editable exports retain class colors, link styles and routed endpoints', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill(`flowchart TD
+    A[Start] -->|yes| B{Choice}
+    B --> C[Accept]
+    B --> D[Reject]
+    D --> A
+    classDef green fill:#dcfce7,stroke:#15803d,color:#14532d
+    class A,C green
+    style B fill:#fef3c7,stroke:#b45309,color:#78350f
+    linkStyle 0 stroke:#e11d48,stroke-width:3px`);
+  await expect(page.getByRole('button', { name: /^Excalidraw/ })).toBeEnabled();
+  const scene = JSON.parse((await getDownload(page, 'Excalidraw')).toString());
+  const start = scene.elements.find((e: { id: string }) => e.id === 'A');
+  expect(start.backgroundColor).toBe('#dcfce7');
+  expect(start.strokeColor).toBe('#15803d');
+  expect(start.fillStyle).toBe('solid');
+  const text = scene.elements.find((e: { containerId: string }) => e.containerId === 'A');
+  expect(text.strokeColor).toBe('#14532d');
+  const arrows = scene.elements.filter((e: { type: string }) => e.type === 'arrow');
+  expect(arrows[0].strokeColor).toBe('#e11d48');
+  expect(arrows[0].strokeWidth).toBe(3);
+  expect(arrows.every((e: { roughness: number; roundness: unknown }) => e.roughness === 0 && e.roundness === null)).toBe(true);
+  expect(arrows.some((e: { points: unknown[] }) => e.points.length > 2)).toBe(true);
+  const drawio = (await getDownload(page, 'draw.io')).toString();
+  for (const style of ['fillColor=#dcfce7', 'strokeColor=#15803d', 'fontColor=#14532d', 'strokeColor=#e11d48', 'exitX=', 'entryX=', 'exitPerimeter=0']) {
+    expect(drawio).toContain(style);
+  }
+});

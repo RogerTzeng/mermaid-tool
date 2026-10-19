@@ -31,6 +31,7 @@ test('keeps parallel, labeled and self-loop edges bound to real nodes', () => {
   assert.match(result, /value="是"[^>]+edge="1"/);
   assert.match(result, /<mxPoint x="160" y="30"\/>/);
   assert.match(result, /endArrow=open/);
+  assert.match(result, /exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0/);
   const ids = [...result.matchAll(/<mxCell id="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
 });

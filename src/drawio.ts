@@ -144,6 +144,15 @@ export function toDrawio(input: readonly DiagramElement[], name: string): string
       style.push('edgeStyle=none', 'rounded=0', `startArrow=${arrowStyle(element.startArrowhead)}`, `endArrow=${arrowStyle(element.endArrowhead)}`, 'labelBackgroundColor=#ffffff');
       const start = element.startBinding?.elementId;
       const end = element.endBinding?.elementId;
+      // Explicit ports keep draw.io from moving endpoints to another side.
+      const port = (id: string | undefined, point: { x: number; y: number }, prefix: string) => {
+        const node = elements.find((item) => item.id === id);
+        if (!node || !node.width || !node.height) return;
+        style.push(`${prefix}X=${number((point.x + offset.x - node.x) / node.width)}`,
+          `${prefix}Y=${number((point.y + offset.y - node.y) / node.height)}`, `${prefix}Perimeter=0`);
+      };
+      port(start, points[0], 'exit');
+      port(end, points[points.length - 1], 'entry');
       const bindings = `${start ? ` source="${elementIds.get(start)}"` : ''}${end ? ` target="${elementIds.get(end)}"` : ''}`;
       const point = (p: { x: number; y: number }, as = '') => `<mxPoint x="${number(p.x)}" y="${number(p.y)}"${as ? ` as="${as}"` : ''}/>`;
       cells.push(`<mxCell id="${elementIds.get(element.id)}" value="${value}" parent="${parent}" edge="1"${bindings} style="${xml(style.join(';'))}"><mxGeometry relative="1" as="geometry">${point(points[0], 'sourcePoint')}${point(points[points.length - 1], 'targetPoint')}<Array as="points">${points.slice(1, -1).map((p) => point(p)).join('')}</Array></mxGeometry></mxCell>`);

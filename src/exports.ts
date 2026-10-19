@@ -2,10 +2,11 @@ import { checkSource, safeFilename } from './flowchart';
 import { assertEditable, toDrawio } from './drawio';
 import type { RenderedDiagram } from './render';
 import { diagramQueue } from './serial-queue';
+import { previewStyles } from './editable-style';
 
 export type ExportFormat = 'svg' | 'png' | 'drawio' | 'excalidraw';
 
-async function editableScene(source: string) {
+async function editableScene(source: string, svg: string) {
   checkSource(source);
   const [{ parseMermaidToExcalidraw }, { convertToExcalidrawElements, serializeAsJSON }] = await Promise.all([
     import('@excalidraw/mermaid-to-excalidraw'),
@@ -18,6 +19,8 @@ async function editableScene(source: string) {
   });
   // Some converter versions reuse IDs for parallel arrows. Only nodes are binding targets.
   const ids = new Set<string>();
+  const styles = previewStyles(svg);
+  let edgeIndex = 0;
   const unique = skeleton.map((element, index) => {
     let id = element.id ?? `generated-${index}`;
     if (ids.has(id) && element.type !== 'arrow' && element.type !== 'line') {
@@ -25,15 +28,37 @@ async function editableScene(source: string) {
     }
     while (ids.has(id)) id += `-${index}`;
     ids.add(id);
+    const style = element.type === 'arrow' ? styles.edges[edgeIndex++] : styles.nodes.get(id);
     // Use the system font so conversion never needs remote font assets.
     return {
       ...element,
       id,
+      roughness: 0,
+      fillStyle: 'solid' as const,
+      ...(style?.strokeColor ? { strokeColor: style.strokeColor } : {}),
+      ...(style?.strokeWidth !== undefined ? { strokeWidth: style.strokeWidth } : {}),
+      ...(style?.backgroundColor ? { backgroundColor: style.backgroundColor } : {}),
+      ...(element.type === 'arrow' ? { roundness: null } : {}),
       ...(element.type === 'text' ? { fontFamily: 2 as const } : {}),
-      ...('label' in element && element.label ? { label: { ...element.label, fontFamily: 2 as const } } : {}),
+      ...('label' in element && element.label ? { label: { ...element.label, fontFamily: 2 as const, ...(style?.labelColor ? { strokeColor: style.labelColor } : {}) } } : {}),
     };
   });
-  const elements = convertToExcalidrawElements(unique, { regenerateIds: false });
+  const converted = convertToExcalidrawElements(unique, { regenerateIds: false });
+  // Binding adjusts arrow endpoints. Keep Mermaid's routed polyline instead.
+  const elements = converted.map((element) => {
+    if (element.type !== 'arrow') return element;
+    const original = unique.find((item) => item.id === element.id);
+    if (original?.type !== 'arrow' || !original.points) return element;
+    const points: [number, number][] = original.points.map(([x, y]: readonly [number, number]) => [x, y] as [number, number]);
+    return {
+      ...element,
+      x: original.x ?? element.x,
+      y: original.y ?? element.y,
+      points,
+      width: Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x)),
+      height: Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)),
+    };
+  });
   assertEditable(elements);
   return { elements, serializeAsJSON };
 }
@@ -68,7 +93,7 @@ export async function exportDiagram(format: ExportFormat, diagram: RenderedDiagr
   if (format === 'svg') return new Blob([diagram.svg], { type: 'image/svg+xml;charset=utf-8' });
   if (format === 'png') return svgToPng(diagram);
   return diagramQueue.run(async () => {
-    const { elements, serializeAsJSON } = await editableScene(diagram.source);
+    const { elements, serializeAsJSON } = await editableScene(diagram.source, diagram.svg);
     if (format === 'drawio') return new Blob([toDrawio(elements, safeFilename(name))], { type: 'application/xml;charset=utf-8' });
     const json = serializeAsJSON(elements, { viewBackgroundColor: '#ffffff' }, {}, 'local');
     return new Blob([json], { type: 'application/vnd.excalidraw+json' });
