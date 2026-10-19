@@ -33,7 +33,8 @@ export function App() {
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const drag = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; scale: number; center: { x: number; y: number }; pan: { x: number; y: number } } | undefined>(undefined);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const [svgUrl, setSvgUrl] = useState('');
   const sourceRef = useRef(source);
@@ -114,6 +115,12 @@ export function App() {
     return () => node.removeEventListener('wheel', wheel);
   }, [ready, scale, fitScale]);
 
+  function endPointer(id: number) {
+    pointers.current.delete(id);
+    pinch.current = undefined;
+    if (!pointers.current.size) setDragging(false);
+  }
+
   async function importFile(file: File | undefined) {
     if (!file) return;
     const currentRevision = revision.current;
@@ -155,7 +162,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="brand"><span className="brand-symbol" aria-hidden="true">m<span>↗</span></span><div><h1>Mermaid Studio</h1><p>{t("把程式碼，變成清楚的流程。")}</p></div></div>
+        <div className="brand"><span className="brand-symbol" aria-hidden="true">🧜‍♀️</span><div><h1>Mermaid Studio</h1><p>{t("把程式碼，變成清楚的流程。")}</p></div></div>
         <span className="local-badge"><span />{t("本機處理 · 無需上傳")}</span>
         <label className="language-switch"><span>{language === 'en' ? 'Language' : '語言'}</span><select aria-label="Language / 語言" value={language} onChange={(event) => setLanguage(event.target.value as Language)}><option value="zh-TW">繁體中文</option><option value="en">English</option></select></label>
       </header>
@@ -176,26 +183,46 @@ export function App() {
           <section className="preview-panel" aria-labelledby="preview-heading">
             <div className="panel-header"><h3 id="preview-heading"><span className="panel-number">02</span>{t("即時預覽")}</h3><span className={`render-status ${ready ? 'success' : ''}`} role="status">{pending ? t("更新中…") : error ? t("需要修正") : ready ? t("● 已更新") : t("等待輸入")}</span></div>
             <div className={`preview-viewport ${ready ? 'interactive' : ''} ${dragging ? 'dragging' : ''}`} ref={preview} aria-busy={pending}
-              title={ready ? t("滾輪縮放・按住滑鼠左鍵拖移") : undefined}
+              title={ready ? t("滾輪或雙指縮放・拖移圖表") : undefined}
               onPointerDown={(event) => {
-                if (!ready || event.button !== 0) return;
+                if (!ready || event.button !== 0 || pointers.current.size >= 2) return;
                 event.preventDefault();
                 event.currentTarget.setPointerCapture(event.pointerId);
-                drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+                pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                if (pointers.current.size === 2) {
+                  const [first, second] = [...pointers.current.values()];
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  pinch.current = {
+                    distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+                    scale,
+                    center: { x: (first.x + second.x) / 2 - rect.left - rect.width / 2, y: (first.y + second.y) / 2 - rect.top - rect.height / 2 },
+                    pan,
+                  };
+                }
                 setDragging(true);
               }}
               onPointerMove={(event) => {
-                const previous = drag.current;
-                if (!previous || previous.pointerId !== event.pointerId) return;
+                const previous = pointers.current.get(event.pointerId);
+                if (!previous) return;
                 const dx = event.clientX - previous.x;
                 const dy = event.clientY - previous.y;
-                drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-                setPan((current) => ({ x: current.x + dx, y: current.y + dy }));
+                pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                if (pinch.current && pointers.current.size === 2) {
+                  const [first, second] = [...pointers.current.values()];
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const center = { x: (first.x + second.x) / 2 - rect.left - rect.width / 2, y: (first.y + second.y) / 2 - rect.top - rect.height / 2 };
+                  const nextScale = Math.max(Math.min(0.1, fitScale), Math.min(4, pinch.current.scale * Math.hypot(second.x - first.x, second.y - first.y) / pinch.current.distance));
+                  const ratio = nextScale / pinch.current.scale;
+                  setPan({ x: center.x - (pinch.current.center.x - pinch.current.pan.x) * ratio, y: center.y - (pinch.current.center.y - pinch.current.pan.y) * ratio });
+                  setZoom(nextScale);
+                } else setPan((current) => ({ x: current.x + dx, y: current.y + dy }));
               }}
               onPointerUp={(event) => {
+                endPointer(event.pointerId);
                 if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
               }}
-              onLostPointerCapture={() => { drag.current = undefined; setDragging(false); }}
+              onPointerCancel={(event) => endPointer(event.pointerId)}
+              onLostPointerCapture={(event) => endPointer(event.pointerId)}
             >
               {ready && diagram && svgUrl ? <div className="diagram-stage" style={{ width: diagram.width * scale, height: diagram.height * scale, transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px)` }}><img alt={t("Mermaid 流程圖預覽")} src={svgUrl} draggable={false} width={diagram.width * scale} height={diagram.height * scale} /></div> : <div className="empty-preview"><span aria-hidden="true">{pending ? '◌' : '⌘'}</span><h4>{pending ? t("正在繪製流程圖") : error ? t("修正程式碼後，圖表會出現在這裡") : t("你的下一張流程圖，從這裡開始")}</h4><p>{pending ? t("稍等一下，讓節點找到自己的位置。") : t("貼上 Mermaid 程式碼，或從左側載入範例。")}</p></div>}
             </div>

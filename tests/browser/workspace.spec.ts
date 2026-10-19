@@ -139,6 +139,33 @@ test('zooms around the cursor, drags the preview, and resets to fit', async ({ p
   expect(reset.width).toBeCloseTo(original.width, 0);
 });
 
+test('pinches to zoom the preview on a touch screen', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const client = await page.context().newCDPSession(page);
+  await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+  await page.goto('/');
+  const viewport = page.locator('.preview-viewport');
+  await viewport.scrollIntoViewIfNeeded();
+  const image = page.getByRole('img', { name: 'Mermaid 流程圖預覽' });
+  await expect(image).toBeVisible();
+  const bounds = (await viewport.boundingBox())!;
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', offsets: [number, number][]) =>
+    client.send('Input.dispatchTouchEvent', { type, touchPoints: offsets.map(([id, dx]) => ({ id, x: x + dx, y })) });
+  const originalWidth = (await image.boundingBox())!.width;
+  const scrollY = await page.evaluate(() => window.scrollY);
+  await touch('touchStart', [[1, -30]]);
+  await touch('touchStart', [[1, -30], [2, 30]]);
+  await touch('touchMove', [[1, -80], [2, 80]]);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(originalWidth * 1.5);
+  const enlargedWidth = (await image.boundingBox())!.width;
+  await touch('touchMove', [[1, -15], [2, 15]]);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeLessThan(enlargedWidth);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  await touch('touchEnd', []);
+});
+
 test('switches languages without changing the diagram and remembers the selection', async ({ page }) => {
   await page.goto('/');
   const language = page.getByRole('combobox', { name: 'Language / 語言' });

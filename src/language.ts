@@ -23,7 +23,7 @@ const english: Record<string, string> = {
   "需要修正": "Needs attention",
   "● 已更新": "● Up to date",
   "等待輸入": "Waiting for input",
-  "滾輪縮放・按住滑鼠左鍵拖移": "Scroll to zoom · Hold the left mouse button to pan",
+  "滾輪或雙指縮放・拖移圖表": "Scroll or pinch to zoom · Drag to pan",
   "Mermaid 流程圖預覽": "Mermaid flowchart preview",
   "正在繪製流程圖": "Drawing your flowchart",
   "修正程式碼後，圖表會出現在這裡": "Fix the code to see your diagram here",
