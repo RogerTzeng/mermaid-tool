@@ -220,3 +220,41 @@ test('editable exports retain class colors, link styles and routed endpoints', a
     expect(drawio).toContain(style);
   }
 });
+
+test('guardrail architecture routes editable connectors around nodes', async ({ page }) => {
+  await page.goto('/');
+  const source = await readFile('tests/fixtures/guardrails.mmd', 'utf8');
+  await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill(source);
+  await expect(page.getByRole('button', { name: /^Excalidraw/ })).toBeEnabled();
+  const scene = JSON.parse((await getDownload(page, 'Excalidraw')).toString());
+  const nodes = scene.elements.filter((e: { type: string }) => ['rectangle', 'diamond', 'ellipse'].includes(e.type));
+  const arrows = scene.elements.filter((e: { type: string }) => e.type === 'arrow');
+  expect(nodes).toHaveLength(17);
+  expect(arrows).toHaveLength(28);
+  for (const edge of arrows) {
+    const points = edge.points.map(([x, y]: number[]) => [edge.x + x, edge.y + y]);
+    for (let i = 1; i < points.length; i++) {
+      const [a, b] = [points[i - 1], points[i]];
+      expect(a[0] === b[0] || a[1] === b[1], `${edge.id} must be orthogonal`).toBe(true);
+      for (const node of nodes) {
+        if ([edge.startBinding?.elementId, edge.endBinding?.elementId].includes(node.id)) continue;
+        const crosses = a[0] === b[0]
+          ? a[0] > node.x + 0.01 && a[0] < node.x + node.width - 0.01 && Math.max(a[1], b[1]) > node.y + 0.01 && Math.min(a[1], b[1]) < node.y + node.height - 0.01
+          : a[1] > node.y + 0.01 && a[1] < node.y + node.height - 0.01 && Math.max(a[0], b[0]) > node.x + 0.01 && Math.min(a[0], b[0]) < node.x + node.width - 0.01;
+        expect(crosses, `${edge.id} crosses ${node.id}`).toBe(false);
+      }
+    }
+  }
+  const drawio = (await getDownload(page, 'draw.io')).toString();
+  expect((drawio.match(/edge="1"/g) ?? [])).toHaveLength(28);
+  expect(drawio).toContain('exitPerimeter=0');
+  const paths = await page.evaluate((text) => {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    return [...doc.querySelectorAll('mxCell[edge="1"]')].map((edge) => {
+      const geometry = edge.querySelector('mxGeometry')!;
+      const point = (p: Element) => [Number(p.getAttribute('x')), Number(p.getAttribute('y'))];
+      return [point(geometry.querySelector('[as="sourcePoint"]')!), ...[...geometry.querySelectorAll('Array mxPoint')].map(point), point(geometry.querySelector('[as="targetPoint"]')!)];
+    });
+  }, drawio);
+  expect(paths).toEqual(arrows.map((edge: { x: number; y: number; points: number[][] }) => edge.points.map(([x, y]) => [Math.round((edge.x + x) * 1000) / 1000, Math.round((edge.y + y) * 1000) / 1000])));
+});

@@ -3,6 +3,7 @@ import { assertEditable, toDrawio } from './drawio';
 import type { RenderedDiagram } from './render';
 import { diagramQueue } from './serial-queue';
 import { previewStyles } from './editable-style';
+import { routeFlowchart } from './edge-routing';
 
 export type ExportFormat = 'svg' | 'png' | 'drawio' | 'excalidraw';
 
@@ -59,8 +60,9 @@ async function editableScene(source: string, svg: string) {
       height: Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)),
     };
   });
-  assertEditable(elements);
-  return { elements, serializeAsJSON };
+  const routed = /^\s*sequenceDiagram\b/m.test(source) ? elements : routeFlowchart(elements);
+  assertEditable(routed);
+  return { elements: routed, serializeAsJSON };
 }
 
 export async function svgToPng(diagram: RenderedDiagram): Promise<Blob> {

@@ -1,0 +1,31 @@
+flowchart TD
+    U["User Input"] --> IG["Input Guardrail"]
+    IG --> ORCH["Orchestration Service"]
+    ORCH --> MODE{"Execution Mode?"}
+    MODE -->|Single Agent| SA["Domain Agent"]
+    MODE -->|Swarm| LA["Lead Agent"]
+    LA --> PLAN["Task Planning & Decomposition"]
+    PLAN --> DG["Delegation Guardrail"]
+    DG --> DA["Domain Agents"]
+    SA --> TG["Tool Execution Guardrail"]
+    DA --> TG
+    TG --> TOOLS["Enterprise Tools & APIs"]
+    TOOLS --> TR["Tool Result Guardrail"]
+    TR --> SA
+    TR --> DA
+    DA --> AGG["Lead Agent: Result Aggregation"]
+    AGG --> OG["Output Guardrail"]
+    SA --> OG
+    OG --> RESPONSE["User Response"]
+    POLICY["Central Policy Engine"]
+    AUDIT["Audit & Observability"]
+    IG -.-> POLICY
+    DG -.-> POLICY
+    TG -.-> POLICY
+    TR -.-> POLICY
+    OG -.-> POLICY
+    IG -.-> AUDIT
+    DG -.-> AUDIT
+    TG -.-> AUDIT
+    TR -.-> AUDIT
+    OG -.-> AUDIT
