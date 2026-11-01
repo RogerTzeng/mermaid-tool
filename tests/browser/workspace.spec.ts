@@ -170,6 +170,7 @@ test('expands the live preview and closes it with the button or Escape', async (
   await page.goto('/');
   const panel = page.locator('.preview-panel');
   await expect(page.getByRole('img', { name: 'Mermaid 流程圖預覽' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全螢幕預覽' })).toHaveText('全螢幕');
   await page.getByRole('button', { name: '全螢幕預覽' }).click();
   await expect(panel).toHaveClass(/expanded/);
   const zoom = page.getByLabel('縮放比例');
@@ -190,6 +191,7 @@ test('full-viewport preview works on mobile without the Fullscreen API', async (
   await page.goto('/');
   await page.getByRole('img', { name: 'Mermaid 流程圖預覽' }).waitFor();
   const panel = page.locator('.preview-panel');
+  await expect(page.getByRole('button', { name: '全螢幕預覽' })).toHaveText('全螢幕');
   await page.getByRole('button', { name: '全螢幕預覽' }).click();
   await expect(panel).toHaveClass(/expanded/);
   const bounds = (await panel.boundingBox())!;
@@ -209,6 +211,7 @@ test('switches languages without changing the diagram and remembers the selectio
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('heading', { name: 'From ideas to flowcharts' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Mermaid code' })).toHaveValue(original);
+  await expect(page.getByRole('button', { name: 'Full screen preview' })).toHaveText('Full screen');
   await expect(page.getByRole('img', { name: 'Mermaid flowchart preview' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fit to view', exact: true })).toBeEnabled();
   await getDownload(page, 'SVG');
@@ -224,6 +227,9 @@ test('switches languages without changing the diagram and remembers the selectio
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(language).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 320, height: 700 });
+  await expect(page.getByRole('button', { name: 'Full screen preview' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await language.selectOption('zh-TW');
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-TW');
   await expect(page.getByRole('heading', { name: '從想法到流程圖' })).toBeVisible();
