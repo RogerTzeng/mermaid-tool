@@ -145,7 +145,12 @@ export function App() {
     };
   }, [expanded]);
 
-  const fitScale = diagram ? Math.max(0.01, Math.min((viewport.width - 64) / diagram.width, (viewport.height - 64) / diagram.height, 1)) : 1;
+  useEffect(() => {
+    setZoom('fit');
+    setPan({ x: 0, y: 0 });
+  }, [expanded]);
+
+  const fitScale = diagram ? Math.max(0.01, Math.min((viewport.width - 64) / diagram.width, (viewport.height - 64) / diagram.height, expanded ? 4 : 1)) : 1;
   const scale = zoom === 'fit' ? fitScale : zoom;
   const ready = Boolean(diagram && diagram.source === source && !pending && !error);
 

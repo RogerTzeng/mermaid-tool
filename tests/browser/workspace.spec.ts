@@ -169,17 +169,24 @@ test('pinches to zoom the preview on a touch screen', async ({ page }) => {
 test('expands the live preview and closes it with the button or Escape', async ({ page }) => {
   await page.goto('/');
   const panel = page.locator('.preview-panel');
-  await expect(page.getByRole('img', { name: 'Mermaid 流程圖預覽' })).toBeVisible();
+  const image = page.getByRole('img', { name: 'Mermaid 流程圖預覽' });
+  await expect(image).toBeVisible();
+  const originalWidth = (await image.boundingBox())!.width;
   await expect(page.getByRole('button', { name: '全螢幕預覽' })).toHaveText('全螢幕');
   await page.getByRole('button', { name: '全螢幕預覽' }).click();
   await expect(panel).toHaveClass(/expanded/);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(originalWidth * 1.2);
+  const fittedWidth = (await image.boundingBox())!.width;
   const zoom = page.getByLabel('縮放比例');
   const initialZoom = Number((await zoom.innerText()).replace('%', ''));
   await page.getByRole('button', { name: '放大' }).click();
   await expect.poll(async () => Number((await zoom.innerText()).replace('%', ''))).toBeGreaterThan(initialZoom);
+  await page.getByRole('button', { name: '符合視窗' }).click();
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeCloseTo(fittedWidth, 0);
   expect((await panel.boundingBox())!.height).toBeCloseTo(page.viewportSize()!.height, 0);
   await page.getByRole('button', { name: '結束全螢幕' }).click();
   await expect(panel).not.toHaveClass(/expanded/);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeCloseTo(originalWidth, 0);
   await page.getByRole('button', { name: '全螢幕預覽' }).click();
   await page.keyboard.press('Escape');
   await expect(panel).not.toHaveClass(/expanded/);
@@ -189,17 +196,22 @@ test('full-viewport preview works on mobile without the Fullscreen API', async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => { Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { value: undefined }); });
   await page.goto('/');
-  await page.getByRole('img', { name: 'Mermaid 流程圖預覽' }).waitFor();
+  await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill('flowchart TD\nA[Start] --> B[Done]');
+  const image = page.getByRole('img', { name: 'Mermaid 流程圖預覽' });
+  await expect(image).toBeVisible();
+  const originalWidth = (await image.boundingBox())!.width;
   const panel = page.locator('.preview-panel');
   await expect(page.getByRole('button', { name: '全螢幕預覽' })).toHaveText('全螢幕');
   await page.getByRole('button', { name: '全螢幕預覽' }).click();
   await expect(panel).toHaveClass(/expanded/);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(originalWidth * 1.5);
   const bounds = (await panel.boundingBox())!;
   expect(bounds.width).toBeCloseTo(390, 0);
   expect(bounds.height).toBeCloseTo(844, 0);
   await expect(page.getByRole('button', { name: '符合視窗' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).not.toHaveClass(/expanded/);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeCloseTo(originalWidth, 0);
 });
 
 test('switches languages without changing the diagram and remembers the selection', async ({ page }) => {
