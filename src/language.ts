@@ -18,6 +18,8 @@ const english: Record<string, string> = {
   "選擇一個流程圖": "Choose a flowchart",
   "字元": "characters",
   "請檢查程式碼": "Check your code",
+  "預覽載入失敗": "Preview failed to load",
+  "預覽模組載入失敗，請重新整理頁面。": "The preview module could not load. Please refresh the page.",
   "即時預覽": "Live preview",
   "全螢幕預覽": "Full screen preview",
   "結束全螢幕": "Exit full screen",

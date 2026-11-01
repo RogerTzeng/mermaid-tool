@@ -12,6 +12,24 @@ const formats: { id: ExportFormat; label: string; detail: string }[] = [
   { id: 'excalidraw', label: 'Excalidraw', detail: '節點與連線可編輯' },
 ];
 
+const draftKey = 'mermaid-stale-chunk-draft';
+const retryKey = 'mermaid-stale-chunk-retry';
+const restoredDraft = (() => {
+  try {
+    const value = sessionStorage.getItem(draftKey);
+    sessionStorage.removeItem(draftKey);
+    if (value) {
+      const draft = JSON.parse(value);
+      if (typeof draft.source === 'string' && typeof draft.filename === 'string') return draft as { source: string; filename: string };
+    }
+  } catch { /* Storage may be disabled. */ }
+  return undefined;
+})();
+
+function isChunkLoadError(message: string): boolean {
+  return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i.test(message);
+}
+
 export function App() {
   const [language, setLanguage] = useState<Language>(() => {
     try { return localStorage.getItem('mermaid-language') === 'en' ? 'en' : 'zh-TW'; }
@@ -22,11 +40,11 @@ export function App() {
     document.documentElement.lang = language;
     try { localStorage.setItem('mermaid-language', language); } catch { /* Storage may be disabled. */ }
   }, [language]);
-  const [source, setSource] = useState<string>(examples.basic.code);
+  const [source, setSource] = useState<string>(restoredDraft?.source ?? examples.basic.code);
   const [diagram, setDiagram] = useState<RenderedDiagram>();
   const [error, setError] = useState('');
   const [pending, setPending] = useState(true);
-  const [filename, setFilename] = useState('mermaid-diagram');
+  const [filename, setFilename] = useState(restoredDraft?.filename ?? 'mermaid-diagram');
   const [exporting, setExporting] = useState<ExportFormat>();
   const [notice, setNotice] = useState('');
   const [fileError, setFileError] = useState('');
@@ -39,6 +57,8 @@ export function App() {
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const [svgUrl, setSvgUrl] = useState('');
   const sourceRef = useRef(source);
+  const filenameRef = useRef(filename);
+  filenameRef.current = filename;
   const revision = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const preview = useRef<HTMLDivElement>(null);
@@ -74,7 +94,18 @@ export function App() {
         setPending(false);
       }).catch((reason: unknown) => {
         if (!isCurrent()) return;
-        setError(messageOf(reason));
+        const message = messageOf(reason);
+        if (isChunkLoadError(message)) {
+          try {
+            if (sessionStorage.getItem(retryKey) !== import.meta.url) {
+              sessionStorage.setItem(draftKey, JSON.stringify({ source, filename: filenameRef.current }));
+              sessionStorage.setItem(retryKey, import.meta.url);
+              window.location.reload();
+              return;
+            }
+          } catch { /* Keep the draft visible if storage is unavailable. */ }
+          setError('預覽模組載入失敗，請重新整理頁面。');
+        } else setError(message);
         setPending(false);
       });
     }, 400);
@@ -209,7 +240,7 @@ export function App() {
             <div className="code-editor"><div className="editor-gutter" ref={gutter} aria-hidden="true">{source.split('\n').map((_, index) => <div key={index}>{index + 1}</div>)}</div><textarea aria-label={t("Mermaid 程式碼")} value={source} onChange={(event) => updateSource(event.target.value)} onScroll={(event) => { if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop; }} spellCheck={false} autoCapitalize="off" autoCorrect="off" wrap="off" placeholder={language === 'en' ? 'flowchart TD\n    A[Start] --> B[Done]' : 'flowchart TD\n    A[開始] --> B[完成]'} /></div>
             <div className="editor-footer"><span>flowchart / graph / sequenceDiagram</span><span>{source.length.toLocaleString()} {t("字元")}</span></div>
             {fileError && <div className="error-box" role="alert">{t(fileError)}</div>}
-            {error && <div className="error-box" role="alert"><strong>{t("請檢查程式碼")}</strong><pre>{t(error)}</pre></div>}
+            {error && <div className="error-box" role="alert"><strong>{t(error === '預覽模組載入失敗，請重新整理頁面。' ? '預覽載入失敗' : '請檢查程式碼')}</strong><pre>{t(error)}</pre></div>}
           </section>
 
           <section className={`preview-panel ${expanded ? 'expanded' : ''}`} ref={previewPanel} aria-labelledby="preview-heading">

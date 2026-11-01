@@ -253,6 +253,25 @@ test('previews and exports the multi-agent sequence diagram in all formats', asy
   expect(external).toEqual([]);
 });
 
+test('recovers from a missing diagram chunk without losing the draft', async ({ page }) => {
+  let blocked = 0;
+  let loads = 0;
+  page.on('load', () => { loads++; });
+  await page.route(/sequenceDiagram.*\.js/, (route) => {
+    if (blocked++ === 0) return route.abort();
+    return route.continue();
+  });
+  await page.goto('/');
+  const source = 'sequenceDiagram\n    Alice->>Bob: Hello';
+  await page.getByRole('textbox', { name: '檔案名稱' }).fill('saved-draft');
+  await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill(source);
+  await expect.poll(() => loads).toBeGreaterThan(1);
+  await expect(page.getByRole('textbox', { name: 'Mermaid 程式碼' })).toHaveValue(source);
+  await expect(page.getByRole('textbox', { name: '檔案名稱' })).toHaveValue('saved-draft');
+  await expect(page.getByRole('img', { name: 'Mermaid 流程圖預覽' })).toBeVisible();
+  expect(blocked).toBeGreaterThan(0);
+});
+
 test('editable exports retain class colors, link styles and routed endpoints', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('textbox', { name: 'Mermaid 程式碼' }).fill(`flowchart TD
