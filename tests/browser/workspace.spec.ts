@@ -166,6 +166,40 @@ test('pinches to zoom the preview on a touch screen', async ({ page }) => {
   await touch('touchEnd', []);
 });
 
+test('expands the live preview and closes it with the button or Escape', async ({ page }) => {
+  await page.goto('/');
+  const panel = page.locator('.preview-panel');
+  await expect(page.getByRole('img', { name: 'Mermaid 流程圖預覽' })).toBeVisible();
+  await page.getByRole('button', { name: '全螢幕預覽' }).click();
+  await expect(panel).toHaveClass(/expanded/);
+  const zoom = page.getByLabel('縮放比例');
+  const initialZoom = Number((await zoom.innerText()).replace('%', ''));
+  await page.getByRole('button', { name: '放大' }).click();
+  await expect.poll(async () => Number((await zoom.innerText()).replace('%', ''))).toBeGreaterThan(initialZoom);
+  expect((await panel.boundingBox())!.height).toBeCloseTo(page.viewportSize()!.height, 0);
+  await page.getByRole('button', { name: '結束全螢幕' }).click();
+  await expect(panel).not.toHaveClass(/expanded/);
+  await page.getByRole('button', { name: '全螢幕預覽' }).click();
+  await page.keyboard.press('Escape');
+  await expect(panel).not.toHaveClass(/expanded/);
+});
+
+test('full-viewport preview works on mobile without the Fullscreen API', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => { Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { value: undefined }); });
+  await page.goto('/');
+  await page.getByRole('img', { name: 'Mermaid 流程圖預覽' }).waitFor();
+  const panel = page.locator('.preview-panel');
+  await page.getByRole('button', { name: '全螢幕預覽' }).click();
+  await expect(panel).toHaveClass(/expanded/);
+  const bounds = (await panel.boundingBox())!;
+  expect(bounds.width).toBeCloseTo(390, 0);
+  expect(bounds.height).toBeCloseTo(844, 0);
+  await expect(page.getByRole('button', { name: '符合視窗' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel).not.toHaveClass(/expanded/);
+});
+
 test('switches languages without changing the diagram and remembers the selection', async ({ page }) => {
   await page.goto('/');
   const language = page.getByRole('combobox', { name: 'Language / 語言' });

@@ -36,6 +36,14 @@ textarea { width: 100%; min-width: 0; padding: 0 20px 0 0; border: 0; resize: no
 .editor-footer span:first-child { font-family: monospace; }
 .render-status { color: #8495a4; font-size: 10px; }
 .render-status.success { color: #2b958b; }
+.preview-header-actions { display: flex; align-items: center; gap: 12px; }
+.fullscreen-button { width: 32px; height: 32px; padding: 7px; border: 1px solid #e1dff0; border-radius: 8px; background: #fcfbff; color: #6c58a1; display: grid; place-items: center; }
+.fullscreen-button:hover { background: #f3edfb; border-color: #b9a7df; }
+.fullscreen-button svg { width: 17px; height: 17px; }
+.preview-panel.expanded { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; width: 100vw; height: 100vh; height: 100dvh; border: 0; border-radius: 0; background: #fff; }
+.preview-panel.expanded .panel-header, .preview-panel.expanded .preview-footer { flex: none; }
+.preview-panel.expanded .preview-viewport { flex: 1; height: auto; min-height: 0; }
+.preview-panel.expanded .preview-footer { padding-bottom: env(safe-area-inset-bottom); height: calc(46px + env(safe-area-inset-bottom)); }
 .preview-viewport { position: relative; height: 456px; overflow: hidden; background-color: #fbfeff; background-image: radial-gradient(#d9e8ed 1px, transparent 1px); background-size: 18px 18px; }
 .preview-viewport.interactive { cursor: grab; touch-action: none; user-select: none; }
 .preview-viewport.dragging { cursor: grabbing; }

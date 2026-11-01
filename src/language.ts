@@ -19,6 +19,8 @@ const english: Record<string, string> = {
   "字元": "characters",
   "請檢查程式碼": "Check your code",
   "即時預覽": "Live preview",
+  "全螢幕預覽": "Full screen preview",
+  "結束全螢幕": "Exit full screen",
   "更新中…": "Updating…",
   "需要修正": "Needs attention",
   "● 已更新": "● Up to date",

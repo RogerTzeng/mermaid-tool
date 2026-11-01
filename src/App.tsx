@@ -33,6 +33,7 @@ export function App() {
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; scale: number; center: { x: number; y: number }; pan: { x: number; y: number } } | undefined>(undefined);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
@@ -41,6 +42,7 @@ export function App() {
   const revision = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const previewPanel = useRef<HTMLElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
 
   function updateSource(value: string) {
@@ -93,6 +95,25 @@ export function App() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.fullscreenElement === previewPanel.current) void document.exitFullscreen().catch(() => setExpanded(false));
+      else setExpanded(false);
+    };
+    const onFullscreenChange = () => { if (document.fullscreenElement !== previewPanel.current) setExpanded(false); };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+    };
+  }, [expanded]);
+
   const fitScale = diagram ? Math.max(0.01, Math.min((viewport.width - 64) / diagram.width, (viewport.height - 64) / diagram.height, 1)) : 1;
   const scale = zoom === 'fit' ? fitScale : zoom;
   const ready = Boolean(diagram && diagram.source === source && !pending && !error);
@@ -119,6 +140,17 @@ export function App() {
     pointers.current.delete(id);
     pinch.current = undefined;
     if (!pointers.current.size) setDragging(false);
+  }
+
+  async function toggleFullscreen() {
+    const panel = previewPanel.current!;
+    if (expanded) {
+      if (document.fullscreenElement === panel) await document.exitFullscreen().catch(() => undefined);
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    try { await panel.requestFullscreen?.(); } catch { /* The full-viewport layout remains available. */ }
   }
 
   async function importFile(file: File | undefined) {
@@ -180,8 +212,8 @@ export function App() {
             {error && <div className="error-box" role="alert"><strong>{t("請檢查程式碼")}</strong><pre>{t(error)}</pre></div>}
           </section>
 
-          <section className="preview-panel" aria-labelledby="preview-heading">
-            <div className="panel-header"><h3 id="preview-heading"><span className="panel-number">02</span>{t("即時預覽")}</h3><span className={`render-status ${ready ? 'success' : ''}`} role="status">{pending ? t("更新中…") : error ? t("需要修正") : ready ? t("● 已更新") : t("等待輸入")}</span></div>
+          <section className={`preview-panel ${expanded ? 'expanded' : ''}`} ref={previewPanel} aria-labelledby="preview-heading">
+            <div className="panel-header"><h3 id="preview-heading"><span className="panel-number">02</span>{t("即時預覽")}</h3><div className="preview-header-actions"><span className={`render-status ${ready ? 'success' : ''}`} role="status">{pending ? t("更新中…") : error ? t("需要修正") : ready ? t("● 已更新") : t("等待輸入")}</span><button className="fullscreen-button" type="button" aria-label={t(expanded ? "結束全螢幕" : "全螢幕預覽")} title={t(expanded ? "結束全螢幕" : "全螢幕預覽")} onClick={() => void toggleFullscreen()}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={expanded ? "M3 8h5V3m13 5h-5V3M3 16h5v5m13-5h-5v5" : "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"} /></svg></button></div></div>
             <div className={`preview-viewport ${ready ? 'interactive' : ''} ${dragging ? 'dragging' : ''}`} ref={preview} aria-busy={pending}
               title={ready ? t("滾輪或雙指縮放・拖移圖表") : undefined}
               onPointerDown={(event) => {
